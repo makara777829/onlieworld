@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Frog Auto-Hunter: 2-Minute Challenge</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; padding: 0; background: #1a3a1a; color: #fff; font-family: 'Press Start 2P', sans-serif; overflow: hidden; }
+        
+        canvas { 
+            display: block; 
+            background-color: #2d5a27;
+            background-image: 
+                linear-gradient(rgba(255,255,255,.1) 2px, transparent 2px),
+                linear-gradient(90deg, rgba(255,255,255,.1) 2px, transparent 2px);
+            background-size: 50px 50px;
+        }
+        
+        .dialogue {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85); display: flex; align-items: center;
+            justify-content: center; text-align: center; z-index: 100;
+        }
+        .dialogue--hidden { display: none; }
+        
+        h1 { font-size: 2.2rem; margin-bottom: 0.5em; color: #a4ff33; text-shadow: 4px 4px 0px #000; }
+        
+        .btn {
+            border: 4px solid #fff; border-radius: 12px; background: #a4ff33;
+            color: #000; cursor: pointer; font-family: inherit; font-size: 1.1rem; padding: 1em 2em;
+            text-transform: uppercase; font-weight: bold; margin: 10px; box-shadow: 6px 6px 0px #000;
+            text-decoration: none; display: inline-block;
+        }
+        .btn:hover { transform: translate(-2px, -2px); box-shadow: 8px 8px 0px #000; }
+        .btn-index { background: #fff; border-color: #000; }
+
+        .hud { position: fixed; top: 20px; left: 20px; width: 90%; pointer-events: none; z-index: 10; display: flex; gap: 20px; }
+        .hud--hidden { display: none; }
+        .stats-box { background: rgba(0,0,0,0.7); border: 4px solid white; padding: 15px; border-radius: 10px; box-shadow: 5px 5px 0px rgba(0,0,0,0.5); }
+        .timer-box { border-color: #ffd700; color: #ffd700; }
+        .heart-container { color: #ff4e4e; font-size: 1.4rem; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="dialogue" id="menu">
+        <div class="dialogue__content" id="menuContent">
+            <h1>FROG AUTO-HUNTER</h1>
+            <ul style="list-style:none; padding:0; font-size:0.7rem; line-height:2;">
+                <li>TIME LIMIT: <span style="color:#ffd700;">2:00 MINUTES</span></li>
+                <li>GOAL: 500 POINTS</li>
+                <li><span style="color:red;">WARNING:</span> FRUIT PAST HIGH RED LINE = -5 PTS</li>
+            </ul>
+            <button class="btn" id="startBtn">START MISSION</button><br>
+            <a href="index2.html" class="btn btn-index">Back to Home</a>
+        </div>
+    </div>
+
+    <div class="hud hud--hidden" id="hud">
+        <div class="stats-box">
+            <div id="scoreDisplay">SCORE: 0 / 500</div>
+            <div class="heart-container" id="heartVal">❤️❤️❤️❤️❤️</div>
+        </div>
+        <div class="stats-box timer-box">
+            TIME: <span id="timerDisplay">02:00</span>
+        </div>
+    </div>
+
+<script>
+const canvas = document.createElement('canvas');
+const ctx = canvas.getContext('2d');
+document.body.appendChild(canvas);
+
+const menu = document.getElementById('menu');
+const hud = document.getElementById('hud');
+const scoreNode = document.getElementById('scoreDisplay');
+const heartNode = document.getElementById('heartVal');
+const timerNode = document.getElementById('timerDisplay');
+const startBtn = document.getElementById('startBtn');
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+const fruitEmojis = ["🍎", "🍓", "🍉", "🍇", "🍒", "🍌", "🍍"];
+let ship, lasers = [], enemies = [], score = 0, hearts = 5, tick = 0;
+let gameActive = false, speedMultiplier = 1, enemyFreq = 50;
+let timeLeft = 120; // 2 minutes in seconds
+let timerInterval;
+
+const DEADLINE_Y = 350; // Raised the line higher (from 250 to 350)
+
+function Ship() {
+    this.w = 130; this.h = 110;
+    this.x = canvas.width / 2 - this.w / 2;
+    this.y = 80;
+    this.speed = 15;
+    this.left = false; this.right = false;
+}
+
+Ship.prototype.draw = function() {
+    ctx.save();
+    ctx.translate(this.x + this.w/2, this.y + this.h/2);
+    ctx.fillStyle = "white";
+    ctx.beginPath(); ctx.ellipse(0, 0, this.w/2 + 10, this.h/2 + 10, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#7db344";
+    ctx.beginPath(); ctx.ellipse(0, 0, this.w/2, this.h/2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "white";
+    ctx.beginPath(); ctx.arc(-30, -30, 18, 0, Math.PI*2); ctx.arc(30, -30, 18, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "black";
+    ctx.beginPath(); ctx.arc(-30, -30, 9, 0, Math.PI*2); ctx.arc(30, -30, 9, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#220000";
+    ctx.beginPath(); ctx.ellipse(0, 20, 30, 15, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+};
+
+function Enemy() {
+    this.emoji = fruitEmojis[Math.floor(Math.random() * fruitEmojis.length)];
+    this.size = Math.floor(Math.random() * 20) + 60;
+    this.x = Math.random() * (canvas.width - this.size);
+    this.y = canvas.height + this.size;
+    this.active = true;
+    this.passed = false;
+}
+
+function updateTimer() {
+    if (!gameActive) return;
+    timeLeft--;
+    const mins = Math.floor(timeLeft / 60);
+    const secs = timeLeft % 60;
+    timerNode.innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    
+    if (timeLeft <= 0) {
+        endGame(false, "OUT OF TIME!");
+    }
+}
+
+function endGame(win, reason = "") {
+    gameActive = false;
+    clearInterval(timerInterval);
+    menu.classList.remove('dialogue--hidden');
+    document.getElementById('menuContent').innerHTML = `
+        <h1 style="color:${win ? '#a4ff33':'#ff4e4e'}">${win ? 'WINNER!' : 'DEFEATED'}</h1>
+        <p>${reason}</p>
+        <p>FINAL SCORE: ${score}</p>
+        <button class="btn" onclick="location.reload()">REPLAY</button><br>
+        <a href="index2.html" class="btn btn-index">Back to Home</a>
+    `;
+}
+
+function update() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // High Red Deadline
+    ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
+    ctx.lineWidth = 6;
+    ctx.setLineDash([15, 15]);
+    ctx.beginPath(); ctx.moveTo(0, DEADLINE_Y); ctx.lineTo(canvas.width, DEADLINE_Y); ctx.stroke();
+    ctx.setLineDash([]);
+
+    if (gameActive) {
+        if (tick % enemyFreq === 0) enemies.push(new Enemy());
+        if (ship.left && ship.x > 0) ship.x -= ship.speed;
+        if (ship.right && ship.x < canvas.width - ship.w) ship.x += ship.speed;
+
+        if (tick % 12 === 0) {
+            const offsets = [-30, 0, 30];
+            offsets.forEach(off => {
+                lasers.push({ x: ship.x + ship.w/2 + off - 4, y: ship.y + 80, w: 8, h: 40, active: true });
+            });
+        }
+    }
+
+    ship.draw();
+
+    lasers.forEach(l => {
+        l.y += 18;
+        ctx.fillStyle = "#ff00ff";
+        ctx.fillRect(l.x, l.y, l.w, l.h);
+
+        enemies.forEach(e => {
+            if (l.active && e.active && l.x < e.x + e.size && l.x + l.w > e.x && l.y < e.y + e.size && l.y + l.h > e.y) {
+                e.active = false; l.active = false;
+                score += 10;
+                if (score >= 500) endGame(true, "TARGET REACHED!");
+                scoreNode.innerText = `SCORE: ${score} / 500`;
+                speedMultiplier += 0.012;
+            }
+        });
+    });
+
+    enemies.forEach(e => {
+        e.y -= 3.5 * speedMultiplier;
+        ctx.save();
+        ctx.font = `${e.size}px serif`;
+        ctx.shadowBlur = 10; ctx.shadowColor = "white";
+        ctx.fillText(e.emoji, e.x, e.y);
+        ctx.restore();
+
+        if (!e.passed && e.y < DEADLINE_Y) {
+            e.passed = true;
+            score = Math.max(0, score - 5);
+            scoreNode.innerText = `SCORE: ${score} / 500`;
+        }
+
+        if (e.active && e.x < ship.x + ship.w && e.x + e.size > ship.x && e.y < ship.y + ship.h && e.y + e.size > ship.y) {
+            e.active = false;
+            hearts--;
+            heartNode.innerText = "❤️".repeat(Math.max(0, hearts));
+            if (hearts <= 0) endGame(false, "NO HEARTS LEFT!");
+        }
+    });
+
+    lasers = lasers.filter(l => l.active && l.y < canvas.height);
+    enemies = enemies.filter(e => e.active && e.y > -150);
+
+    tick++;
+    requestAnimationFrame(update);
+}
+
+window.addEventListener('keydown', e => {
+    if (e.code === 'ArrowLeft') ship.left = true;
+    if (e.code === 'ArrowRight') ship.right = true;
+});
+window.addEventListener('keyup', e => {
+    if (e.code === 'ArrowLeft') ship.left = false;
+    if (e.code === 'ArrowRight') ship.right = false;
+});
+
+startBtn.addEventListener('click', () => {
+    menu.classList.add('dialogue--hidden');
+    hud.classList.remove('hud--hidden');
+    gameActive = true;
+    timerInterval = setInterval(updateTimer, 1000);
+    update();
+});
+
+ship = new Ship();
+update();
+</script>
+</body>
+</html>
