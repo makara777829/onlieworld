@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pac-Man: 1.1x Subtle Turbo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@900&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #020202; display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh; font-family: 'Press Start 2P', cursive; overflow: hidden; color: white;
+        }
+        header.nav-header {
+            width: 100%; height: 60px; background: #fff; display: flex; align-items: center;
+            justify-content: space-between; padding: 0 20px; position: fixed; top: 0; z-index: 100;
+            border-bottom: 4px solid #333;
+        }
+        .btn-back {
+            background: #000; color: #fff; border: none; padding: 8px 16px;
+            font-family: 'Montserrat', sans-serif; font-weight: 900; cursor: pointer; border-radius: 4px;
+        }
+        .wrapper { margin-top: 80px; text-align: center; }
+        .scoreboard {
+            display: flex; justify-content: space-around; width: 850px;
+            margin: 0 auto 10px; padding: 15px; border: 3px solid #00ffcc;
+            background: rgba(0, 255, 204, 0.05); border-radius: 15px;
+        }
+        canvas { background: #000; border-radius: 12px; box-shadow: 0 0 30px rgba(0, 255, 204, 0.2); }
+    </style>
+</head>
+<body>
+
+    <header class="nav-header">
+        <button class="btn-back" onclick="window.location.href='index2.html'">◀ EXIT</button>
+        <span style="color:#222; font-family:'Montserrat'; letter-spacing: 2px;">SUBTLE TURBO MODE</span>
+        <div style="width: 80px;"></div>
+    </header>
+
+    <div class="wrapper">
+        <div class="scoreboard">
+            <div>SCORE: <span id="score" style="color:#00ff00">0</span></div>
+            <div>STATUS: <span id="ai-status" style="color:#00ffcc">WANDERING</span></div>
+            <div>LIVES: <span id="lives" style="color:red">3</span></div>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const tileSize = 26; 
+        const cols = 32; const rows = 18;
+        canvas.width = cols * tileSize; canvas.height = rows * tileSize;
+
+        let score = 0; let lives = 3;
+        const fruits = { 2: "🍒", 3: "🍇", 4: "🍉", 5: "🍍", 6: "🍓" };
+
+        const baseMap = [
+            "11111111111111111111111111111111",
+            "10000000000001100110000000000001",
+            "10111011111001100110011111011101",
+            "10111011111000000000011111011101",
+            "10000000000011100111000000000001",
+            "10111011101011100111010111011101",
+            "10000011100000000000001110000001",
+            "11101011101110111101110111010111",
+            "00001000001110000001110000010000",
+            "11101011101111111111110111010111",
+            "10000000000000011000000000000001",
+            "10111011101110011001110111011101",
+            "10111000000000000000000000011101",
+            "10111011111011111111011111011101",
+            "10000000000000011000000000000001",
+            "10111011111110011001111111011101",
+            "10000000000000000000000000000001",
+            "11111111111111111111111111111111"
+        ];
+
+        let map = baseMap.map(row => row.split('').map(cell => {
+            if (cell === "0") return Math.floor(Math.random() * 5) + 2; 
+            return Number(cell);
+        }));
+
+        const player = { x: 1, y: 1, dirX: 0, dirY: 0, speed: 0.15 };
+        
+        let ghosts = [
+            { x: 15, y: 8, dirX: 1, dirY: 0, emoji: "👻", baseSpeed: 0.12, speed: 0.12, turbo: 0 },
+            { x: 16, y: 8, dirX: -1, dirY: 0, emoji: "👻", baseSpeed: 0.12, speed: 0.12, turbo: 0 },
+            { x: 1, y: 16, dirX: 1, dirY: 0, emoji: "👻", baseSpeed: 0.12, speed: 0.12, turbo: 0 }
+        ];
+
+        function isWall(x, y) {
+            let rx = Math.round(x); let ry = Math.round(y);
+            return map[ry] && map[ry][rx] === 1;
+        }
+
+        function canSeePlayer(g) {
+            let dx = Math.abs(player.x - g.x);
+            let dy = Math.abs(player.y - g.y);
+            if (dx < 0.6 || dy < 0.6) {
+                let startX = Math.min(g.x, player.x); let endX = Math.max(g.x, player.x);
+                let startY = Math.min(g.y, player.y); let endY = Math.max(g.y, player.y);
+                if (dy < 0.6) {
+                    for (let x = Math.floor(startX); x <= Math.ceil(endX); x++) if (isWall(x, g.y)) return false;
+                } else {
+                    for (let y = Math.floor(startY); y <= Math.ceil(endY); y++) if (isWall(g.x, y)) return false;
+                }
+                return true;
+            }
+            return false;
+        }
+
+        function draw() {
+            ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            map.forEach((row, r) => {
+                row.forEach((cell, c) => {
+                    if (cell === 1) {
+                        ctx.shadowBlur = 8; ctx.shadowColor = "#00ffcc";
+                        ctx.fillStyle = "#001a1a"; ctx.fillRect(c*tileSize+2, r*tileSize+2, tileSize-4, tileSize-4);
+                        ctx.shadowBlur = 0;
+                    } else if (fruits[cell]) {
+                        ctx.font = "18px serif"; ctx.fillText(fruits[cell], c*tileSize+4, r*tileSize+20);
+                    }
+                });
+            });
+
+            ctx.font = "22px serif";
+            ctx.fillText("😭", player.x * tileSize + 2, player.y * tileSize + 22);
+
+            ghosts.forEach(g => {
+                if (g.turbo > 0) { ctx.shadowBlur = 10; ctx.shadowColor = "cyan"; }
+                ctx.fillText(g.emoji, g.x * tileSize + 2, g.y * tileSize + 22);
+                ctx.shadowBlur = 0;
+            });
+            update();
+            requestAnimationFrame(draw);
+        }
+
+        function update() {
+            let pnx = player.x + player.dirX * player.speed;
+            let pny = player.y + player.dirY * player.speed;
+            if (!isWall(pnx + player.dirX * 0.2, pny + player.dirY * 0.2)) {
+                player.x = pnx; player.y = pny;
+            }
+
+            let anyTurbo = false;
+            ghosts.forEach(g => {
+                if (canSeePlayer(g) && g.turbo <= 0) { g.turbo = 108; } 
+
+                if (g.turbo > 0) {
+                    g.turbo--;
+                    g.speed = g.baseSpeed * 1.1; // 1.1x Multiplier
+                    anyTurbo = true;
+                } else { g.speed = g.baseSpeed; }
+
+                let nextX = g.x + g.dirX * g.speed;
+                let nextY = g.y + g.dirY * g.speed;
+
+                if (isWall(nextX + g.dirX * 0.4, nextY + g.dirY * 0.4) || (Math.random() < 0.04)) {
+                    const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
+                    const valid = dirs.filter(d => !isWall(g.x + d[0], g.y + d[1]));
+                    if (valid.length > 0) {
+                        let pick = valid[Math.floor(Math.random() * valid.length)];
+                        g.dirX = pick[0]; g.dirY = pick[1];
+                    }
+                } else { g.x = nextX; g.y = nextY; }
+
+                if (Math.sqrt((player.x - g.x)**2 + (player.y - g.y)**2) < 0.6) {
+                    lives--; document.getElementById("lives").innerText = lives;
+                    player.x = 1; player.y = 1;
+                    if (lives <= 0) location.reload();
+                }
+            });
+
+            document.getElementById("ai-status").innerText = anyTurbo ? "GHOST ALERT" : "WANDERING";
+
+            let mx = Math.round(player.x); let my = Math.round(player.y);
+            if (map[my] && map[my][mx] > 1) {
+                score += 10; map[my][mx] = 0;
+                document.getElementById("score").innerText = score;
+            }
+        }
+
+        window.addEventListener("keydown", e => {
+            if (e.key === "ArrowUp") { player.dirX = 0; player.dirY = -1; }
+            if (e.key === "ArrowDown") { player.dirX = 0; player.dirY = 1; }
+            if (e.key === "ArrowLeft") { player.dirX = -1; player.dirY = 0; }
+            if (e.key === "ArrowRight") { player.dirX = 1; player.dirY = 0; }
+        });
+
+        draw();
+    </script>
+</body>
+</html>

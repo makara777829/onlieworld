@@ -1,0 +1,96 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    background: #050505;
+    background-image: radial-gradient(circle, #1a1a2e 0%, #000 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Press Start 2P', cursive;
+    overflow: hidden;
+}
+
+/* Elite Header */
+.nav-header {
+    width: 100%;
+    height: 60px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    position: fixed;
+    top: 0;
+    border-bottom: 4px solid #333;
+    z-index: 100;
+}
+
+.btn-back {
+    background: #222;
+    color: #fff;
+    border: none;
+    padding: 8px 15px;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.gallery-title-top {
+    color: #222;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
+    font-size: 1.2rem;
+}
+
+.version-tag { color: #555; font-size: 8px; }
+
+/* Game Area */
+.wrapper { margin-top: 100px; text-align: center; }
+
+.scoreboard {
+    display: flex;
+    justify-content: space-between;
+    width: 560px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid #333;
+    font-size: 12px;
+}
+
+#score { color: #00ff00; text-shadow: 0 0 10px #00ff00; }
+#lives { color: #ff0000; text-shadow: 0 0 10px #ff0000; }
+
+.restart-btn {
+    font-family: 'Press Start 2P';
+    font-size: 8px;
+    background: #ffeb3b;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 #9e9e20;
+}
+
+.game-container { position: relative; }
+
+canvas {
+    background: #000;
+    border: 4px solid #1a1a1a;
+    border-radius: 8px;
+    box-shadow: 0 0 40px rgba(33, 150, 243, 0.2);
+}
+
+/* CRT Scanlines */
+.crt-overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%),
+                linear-gradient(90deg, rgba(255, 0, 0, 0.05), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.05));
+    background-size: 100% 4px, 3px 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.hint { color: #444; margin-top: 15px; font-size: 8px; letter-spacing: 1px; }
